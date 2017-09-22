@@ -21,6 +21,7 @@ class Elio extends EventEmitter {
     this._internalSourceRegistry = new Map();
     this._internalRoutingMap = new Map();
     this._clusterManager = new ClusterManager(maxNodes || 5, ttl || 300000);
+    if (config.modulePath) this._clusterManager.setModulePath(config.modulePath);
     this._clusterManager.once('online', () => this._completeCriteria('nodesReady'));
     this._resolvers = {
       IDENTITY: (identity, callback) => callback(new Error("No Identity Resolver was registered"))
