@@ -104,85 +104,20 @@ describe('Elio Routing Test Suite', function () {
     }]);
   });
 
-  it('should create a route through endpoint', function (done) {
-    request({
-      method: "PUT",
-      url: `http://localhost:${port}/routes/ep_route/${f2_digest}`,
-    }, function (error, response, buffer) {
-      if (error) throw error;
-
-      expect(buffer).to.not.be.undefined;
-      expect(elio.getRoute('ep_route')).to.equal(f2_digest);
-      expect(elio.listRoutes()).to.include.deep.members([{
-        route: 'ep_route',
-        digest: f2_digest
-      }]);
-      done();
+  it('should invoke a function through local API', async () => {
+    const response = await elio.invokeRoute('my_test_function', { name: 'test' });
+    expect(response).to.eql({
+      result: 'test'
     });
   });
 
-  it('should delete a route through endpoint', function (done) {
-    request({
-      method: "DELETE",
-      url: `http://localhost:${port}/routes/ep_route/`,
-    }, function (error, response, buffer) {
-      if (error) throw error;
-
-      expect(buffer).to.not.be.undefined;
-      expect(elio.getRoute('ep_route')).to.be.undefined;
-      expect(elio.listRoutes()).to.not.have.members([f2_digest]);
-      done();
-    });
-  });
-
-  it('should invoke a routed function through access point', function (done) {
-    request(`http://localhost:${port}/invoke/my_test_function`).on('response', function (response, body) {
-      expect(response.statusCode).to.be.equal(200);
-      GET_JSON_FROM_RESPONSE(response, (error, body) => {
-        expect(body).to.be.eql({
-          result: 'echo'
-        });
-        done();
-      });
-    }).on('error', function (error) {
-      throw error;
-    });
-  });
-
-  it('should invoke a function through local API', function (done) {
-    elio.invokeRoute('my_test_function', { name: 'test' }, (error, response) => {
-      if (error) throw error;
-      expect(response).to.eql({
-        result: 'test'
-      });
-      done();
-    });
-  });
-
-  it('should swap a route', function (done) {
+  it('should swap a route', async () => {
     elio.assignRoute('my_test_function', f2_digest);
 
-    elio.invokeRoute('my_test_function', { name: 'test' }, (error, response) => {
-      if (error) throw error;
-      expect(response).to.eql({
-        result: 'test',
-        type: 's2'
-      });
-      done();
-    });
-  })
-
-  it('should remove a route', function (done) {
-    elio.removeRoute('my_test_function');
-
-    elio.invokeRoute('my_test_function', { name: 'test' }, (error, response) => {
-      expect(error).to.not.be.undefined;
-      request(`http://localhost:${port}/invoke/my_test_function`).on('response', function (response, body) {
-        expect(response.statusCode).to.be.equal(404);
-        done();
-      }).on('error', function (error) {
-        throw error;
-      });
+    const response = await elio.invokeRoute('my_test_function', { name: 'test' });
+    expect(response).to.eql({
+      result: 'test',
+      type: 's2'
     });
   });
 });

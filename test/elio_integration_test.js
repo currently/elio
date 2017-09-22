@@ -116,74 +116,14 @@ describe('Elio Integration Test Suite', function () {
     });
   });
 
-  it('should deploy via endpoint', function (done) {
-    const source = `
-      module.exports = (context, callback) => callback(null, {
-        result: context.name || "echo",
-        type: 'HTTP_DEPLOYED'
-      });
-    `;
-
-    request({
-      method: "PUT",
-      headers: {
-        'content-type': 'application/javascript',
-        'x-identity': 'test',
-        'Authorization': signSource(source)
-      },
-      url: `http://localhost:${port}/source/`,
-      body: source
-    }, function (error, response, buffer) {
-      if (error) throw error;
-
-      expect(buffer).to.not.be.undefined;
-      const body = JSON.parse(buffer);
-      expect(response.statusCode).to.be.equal(200);
-      f2_digest = body.digest;
-      done();
-    });
-  });
-
   it('should list function under available deployments', function () {
-    expect(elio.listDeployments().map((r) => r[0])).to.have.members([f1_digest, f2_digest]);
+    expect(elio.listDeployments().map((r) => r[0])).to.have.members([f1_digest]);
   });
 
-  it('should invoke a function through access point', function (done) {
-    request(`http://localhost:${port}/source/${f1_digest}`).on('response', function (response, body) {
-      expect(response.statusCode).to.be.equal(200);
-      GET_JSON_FROM_RESPONSE(response, (error, body) => {
-        expect(body).to.be.eql({
-          result: 'echo'
-        });
-        done();
-      });
-    }).on('error', function (error) {
-      throw error;
-    });
-  });
-
-  it('should invoke an HTTP deployed function through access point', function (done) {
-    request(`http://localhost:${port}/source/${f2_digest}`).on('response', function (response, body) {
-      expect(response.statusCode).to.be.equal(200);
-      GET_JSON_FROM_RESPONSE(response, (error, body) => {
-        expect(body).to.be.eql({
-          result: 'echo',
-          type: 'HTTP_DEPLOYED'
-        });
-        done();
-      });
-    }).on('error', function (error) {
-      throw error;
-    });
-  });
-
-  it('should invoke a function through local API', function (done) {
-    elio.invoke(f1_digest, { name: 'test' }, (error, response) => {
-      if (error) throw error;
-      expect(response).to.eql({
-        result: 'test'
-      });
-      done();
+  it('should invoke a function through local API', async () => {
+    const response = await elio.invoke(f1_digest, { name: 'test' });
+    expect(response).to.eql({
+      result: 'test'
     });
   });
 
@@ -193,28 +133,6 @@ describe('Elio Integration Test Suite', function () {
 
       expect(elio.listDeployments().map((r) => r[0])).to.not.have.members([f1_digest]);
       done();
-    });
-  });
-
-  it('should undeploy via endpoint', function (done) {
-    request({
-      method: "DELETE",
-      url: `http://localhost:${port}/source/${f2_digest}`,
-    }, function (error, response, buffer) {
-      if (error) throw error;
-
-      expect(buffer).to.not.be.undefined;
-      expect(elio.listDeployments().map((r) => r[0])).to.not.have.deep.members([f2_digest, f1_digest]);
-      done();
-    });
-  });
-
-  it('should return correct http code when invoking deleted or unknown digests', function (done) {
-    request(`http://localhost:${port}/source/${f1_digest}`).on('response', function (response, body) {
-      expect(response.statusCode).to.be.equal(404);
-      done();
-    }).on('error', function (error) {
-      throw error;
     });
   });
 });

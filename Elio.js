@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const anyBody = require('body/any');
 const EventEmitter = require('events').EventEmitter;
 
-const AccessPoint = require('./lib/AccessPoint');
 const ClusterManager = require('./lib/ClusterManager');
 const REF = require('./lib/REF');
 
@@ -14,8 +13,7 @@ class Elio extends EventEmitter {
 
     const { port, maxNodes, ttl } = config;
     this._readyCriteria = {
-      nodesReady: false,
-      apReady: false
+      nodesReady: false
     };
     this._hasBeenReadyBefore = false;
     this._internalSourceRegistry = new Map();
@@ -26,7 +24,6 @@ class Elio extends EventEmitter {
     this._resolvers = {
       IDENTITY: (identity, callback) => callback(new Error("No Identity Resolver was registered"))
     };
-    new AccessPoint(port, (...args) => this._AP_ROUTER(...args), () => this._completeCriteria('apReady'));
   }
 
   _completeCriteria(key) {
@@ -44,61 +41,6 @@ class Elio extends EventEmitter {
     }
   }
 
-  _AP_ROUTER(action, callback) {
-    switch (action.type) {
-      case 'INVOKE_NO_PARAM':
-        if (action.isRouted) {
-          this.invoke(this._internalRoutingMap.get(action.ref), action.query, callback);
-        } else {
-          this.invoke(action.ref, action.query, callback);
-        }
-      break;
-
-      /** @todo: Implement routing */
-      /*case 'INVOKE_WITH_PARAMS':
-        anyBody(req, res, {}, (error, body) => {
-          if (error) return callback(new Error("Failed to parse body"));
-          else this.invoke(action.ref, {
-            query: action.query,
-            body: body
-          }, callback);
-        });
-      break;*/
-
-      case 'UNDEPLOY':
-        this.undeploy(action.ref, callback);
-      break;
-
-      case 'DEPLOY':
-        if (action.stream) {
-          let source = '';
-
-          action.stream.on('data', (chunk) => source += chunk);
-          action.stream.on('end', () => {
-            this.deploy(action.headers['x-identity'], source, action.headers['authorization'], (error, digest) => {
-              if (error) return callback(error);
-              callback(null, { status: 'OK', digest });
-            });
-          });
-        } else {
-          return callback(new Error("No body was received"));
-        }
-      break;
-
-      case 'ROUTE_DEPLOY':
-        this._internalRoutingMap.set(action.route, action.digest);
-      return callback(null, { status: 'OK' });
-
-      case 'ROUTE_UNDEPLOY':
-      return callback(null, {
-        deleted: this._internalRoutingMap.delete(action.route)
-      });
-
-      default:
-      return callback(new Error("Failed to identity request type."));
-    }
-  }
-
   setIdentityResolver(handler) {
     this._resolvers.IDENTITY = handler; 
   }
@@ -109,21 +51,16 @@ class Elio extends EventEmitter {
     this.emit('deploy', digest, source);
   }
 
-  async invoke(digest, context, callback) {
-    try {
-      const results = await this._clusterManager.anycast(digest, {
-        type: 'REFInvoke',
-        digest,
-        context
-      });
-      callback(null, results);
-    } catch (error) {
-      callback(error);
-    }
+  async invoke(digest, context) {
+    return await this._clusterManager.anycast(digest, {
+      type: 'REFInvoke',
+      digest,
+      context
+    });
   }
 
-  invokeRoute(route, context, callback) {
-    this.invoke(this._internalRoutingMap.get(route), context, callback);
+  async invokeRoute(route, context) {
+    return this.invoke(this._internalRoutingMap.get(route), context);
   }
 
   deploy(identity, source, signature, callback) {
