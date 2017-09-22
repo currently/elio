@@ -103,17 +103,23 @@ class Elio extends EventEmitter {
     this._resolvers.IDENTITY = handler; 
   }
 
-  unsafe_deploy(digest, source, callback) {
-    this._clusterManager.allocate(digest, source, callback);
+  async unsafe_deploy(digest, source, callback) {
+    const results = await this._clusterManager.allocate(digest, source);
+    callback(null, results);
     this.emit('deploy', digest, source);
   }
 
-  invoke(digest, context, callback) {
-    this._clusterManager.anycast(digest, {
-      type: 'REFInvoke',
-      digest,
-      context
-    }, callback);
+  async invoke(digest, context, callback) {
+    try {
+      const results = await this._clusterManager.anycast(digest, {
+        type: 'REFInvoke',
+        digest,
+        context
+      });
+      callback(null, results);
+    } catch (error) {
+      callback(error);
+    }
   }
 
   invokeRoute(route, context, callback) {
@@ -162,8 +168,9 @@ class Elio extends EventEmitter {
     });
   }
 
-  undeploy(digest, callback) {
-    this._clusterManager.deallocate(digest, callback);
+  async undeploy(digest, callback) {
+    const results = await this._clusterManager.deallocate(digest);
+    callback(null, results);
     this.emit('undeploy', digest);
   }
 
