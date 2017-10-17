@@ -73,12 +73,12 @@ describe('Elio Routing Test Suite', function () {
 
   it('should deploy new functions', function (done) {
     const s1 = `
-      module.exports = (context, callback) => callback(null, {
+      module.exports = async (context) => ({
         result: context.name || "echo"
       });
     `;
     const s2 = `
-      module.exports = (context, callback) => callback(null, {
+      module.exports = async (context) => ({
         result: context.name || "echo",
         type: 's2'
       });

@@ -56,7 +56,7 @@ describe('Cluster Node integration test suite', function () {
       type: 'REFDeploy',
       digest: 'DIGESTS_ARE_NOT_VERIFIED_AT_THIS_STEP',
       source: `
-        module.exports = (context, callback) => callback(null, \`\Hello \${context.name || "World"}!\`);
+        module.exports = async (context) => \`\Hello \${context.name || "World"}!\`;
       `
     });
   });

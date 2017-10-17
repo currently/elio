@@ -74,7 +74,7 @@ describe('Elio Integration Test Suite', function () {
 
   it('should deploy new function', function (done) {
     const source = `
-      module.exports = (context, callback) => callback(null, {
+      module.exports = async (context) => ({
         result: context.name || "echo"
       });
     `;
