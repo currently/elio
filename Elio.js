@@ -5,7 +5,6 @@ const anyBody = require('body/any');
 const EventEmitter = require('events').EventEmitter;
 
 const ClusterManager = require('./lib/ClusterManager');
-const REF = require('./lib/REF');
 
 class Elio extends EventEmitter {
   constructor(config) {
@@ -73,11 +72,10 @@ class Elio extends EventEmitter {
       RSA_SHA_256.update(source);
 
       if (RSA_SHA_256.verify(publicKey, signature, 'hex')) {
-        const ref = new REF(signature, source.length);
         // Override publicKey Buffer in memory
         publicKey.fill && publicKey.fill('0');
         // Deploy Source
-        this.unsafe_deploy(ref.digest, source, (error) => callback(error, signature));
+        this.unsafe_deploy(signature, source, (error) => callback(error, signature));
       } else {
         return callback(new Error("Bad signature"));
       }
