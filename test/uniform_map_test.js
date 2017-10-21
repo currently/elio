@@ -1,4 +1,4 @@
-const UniformDistributionMap = require('../lib/UniformDistributionMap');
+const UniformDistributionMap = require('../core/structures/UniformDistributionMap');
 
 const ITERATABLE_HAS_MEMBER = (iter, member) => {
   for (const m of iter) {

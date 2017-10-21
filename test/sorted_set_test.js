@@ -1,4 +1,4 @@
-const SortedSet = require('../lib/SortedSet');
+const SortedSet = require('../core/structures/SortedSet');
 
 const ITERATABLE_HAS_MEMBER = (iter, member) => {
   for (const m of iter) {

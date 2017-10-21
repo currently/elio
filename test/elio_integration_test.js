@@ -1,4 +1,4 @@
-const Elio = require('../Elio');
+const Elio = require('../core/Elio');
 const request = require('request');
 const crypto = require('crypto');
 

@@ -1,6 +1,6 @@
 const cluster = require('cluster');
 const shortid = require('shortid');
-const UniformDistributionMap = require('./UniformDistributionMap');
+const UniformDistributionMap = require('./structures/UniformDistributionMap');
 const EventEmitter = require('events').EventEmitter;
 
 class ClusterManager extends EventEmitter {

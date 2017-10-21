@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const anyBody = require('body/any');
 const EventEmitter = require('events').EventEmitter;
 
-const ClusterManager = require('./lib/ClusterManager');
+const ClusterManager = require('./ClusterManager');
 
 class Elio extends EventEmitter {
   constructor(config) {
