@@ -1,6 +1,7 @@
 const Elio = require('../core/Elio');
 const request = require('request');
 const crypto = require('crypto');
+const { Signature } = Elio.services;
 
 const privateKey =
 `-----BEGIN RSA PRIVATE KEY-----
@@ -56,10 +57,7 @@ describe('Elio Routing Test Suite', function () {
       ttl: 30000
     });
 
-    elio.setIdentityResolver((identity) => {
-      if (identity === 'test') return Buffer.from(publicKey);
-      else throw new Error("Bad identity");
-    });
+    elio.use(new Signature([["test", Buffer.from(publicKey)]]));
 
     elio.on('ready', done);
   });
@@ -90,8 +88,8 @@ describe('Elio Routing Test Suite', function () {
     expect(elio.listDeployments().map((r) => r[0])).to.have.members([f1_digest, f2_digest]);
   });
 
-  it('should create a route for the function', function () {
-    elio.assignRoute('my_test_function', f1_digest);
+  it('should create a route for the function', async () => {
+    await elio.assignRoute('my_test_function', f1_digest);
     expect(elio.getRoute('my_test_function')).to.equal(f1_digest);
     expect(elio.listRoutes()).to.have.deep.members([{
       route: 'my_test_function',
@@ -107,7 +105,7 @@ describe('Elio Routing Test Suite', function () {
   });
 
   it('should swap a route', async () => {
-    elio.assignRoute('my_test_function', f2_digest);
+    await elio.assignRoute('my_test_function', f2_digest);
 
     const response = await elio.invokeRoute('my_test_function', { name: 'test' });
     expect(response).to.eql({

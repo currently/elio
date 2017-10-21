@@ -1,6 +1,7 @@
 const Elio = require('../core/Elio');
 const request = require('request');
 const crypto = require('crypto');
+const { Signature } = Elio.services;
 
 const privateKey =
   `-----BEGIN RSA PRIVATE KEY-----
@@ -56,10 +57,7 @@ describe('Elio Integration Test Suite', function () {
       ttl: 30000
     });
 
-    elio.setIdentityResolver(async (identity) => {
-      if (identity === 'test') return Buffer.from(publicKey);
-      else if (identity === 'banned_identity') throw new Error("Identity was banned");
-    });
+    elio.use(new Signature([["test", Buffer.from(publicKey)]]));
 
     elio.on('ready', done);
   });
@@ -108,7 +106,7 @@ describe('Elio Integration Test Suite', function () {
       await elio.deploy('banned_identity', source, signSource(source));
     } catch (error) {
       expect(error).to.not.be.null;
-      expect(error).to.have.property("message", "Identity was banned");
+      expect(error).to.have.property("message", "Invalid identity");
     }
   });
 

@@ -1,6 +1,6 @@
 {
   "name": "elio",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Full-blown, fully open-source server-less infrastructure for Node.js that can run anywhere, anytime and at any scale.",
   "main": "Elio.js",
   "scripts": {
