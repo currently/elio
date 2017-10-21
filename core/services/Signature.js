@@ -20,6 +20,10 @@ class Signature {
 
     if (!RSA_SHA_256.verify(publicKey, signature, 'hex')) throw new Error("Bad signature");
   }
+
+  get registeredHooks() {
+    return ["onDeploy"];
+  }
 }
 
 module.exports = Signature;

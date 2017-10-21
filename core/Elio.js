@@ -3,6 +3,7 @@ const { runInNewContext } = vm;
 const anyBody = require('body/any');
 const EventEmitter = require('events').EventEmitter;
 const Services = require('./services');
+const LifeCycle = require('./LifeCycle');
 
 const ClusterManager = require('./ClusterManager');
 
@@ -20,14 +21,7 @@ class Elio extends EventEmitter {
     this._clusterManager = new ClusterManager(maxNodes || 5, ttl || 300000);
     if (config.modulePath) this._clusterManager.setModulePath(config.modulePath);
     this._clusterManager.once('online', () => this._completeCriteria('nodesReady'));
-    this._services = {
-      onDeploy: [],
-      onUndeploy: [],
-      onInvoke: [],
-      onInvokeRoute: [],
-      onAssignRoute: [],
-      onRemoveRoute: []
-    };
+    this._lifecycle = new LifeCycle();
   }
 
   _completeCriteria(key) {
@@ -45,27 +39,17 @@ class Elio extends EventEmitter {
     }
   }
 
-  async _serviceCycle(lifecycle, ...args) {
-    const services = this._services[lifecycle];
-    let promises = [];
-
-    for (let i = 0; i < services.length; i++) {
-      promises.push(services[i][lifecycle](...args));
-    }
-
-    return await Promise.all(promises);
-  }
-
   use(service) {
-    for (const lifecycle in this._services) {
-      if (typeof service[lifecycle] === 'function') {
-        this._services[lifecycle].push(service);
-      }
+    const { registeredHooks } = service;
+    const length = (registeredHooks)?registeredHooks.length:0;
+
+    for (let i = 0; i < length; i++) {
+      this._lifecycle.add(registeredHooks[i], service);
     }
   }
 
   async invoke(digest, context) {
-    await this._serviceCycle('onInvoke', digest, context);
+    await this._lifecycle.trigger('onInvoke', digest, context);
 
     return await this._clusterManager.anycast(digest, {
       type: 'REFInvoke',
@@ -75,30 +59,19 @@ class Elio extends EventEmitter {
   }
 
   async invokeRoute(route, context) {
-    await this._serviceCycle('onInvokeRoute', route, context);
+    await this._lifecycle.trigger('onInvokeRoute', route, context);
 
     return this.invoke(this._internalRoutingMap.get(route), context);
   }
 
-  async deploy(identity, source, signature) {
-    const deployment = { identity, source, signature };
-    await this._serviceCycle('onDeploy', deployment);
- 
-    // Deploy Source
-    const results = await this._clusterManager.allocate(signature, source);
-    this.emit('deploy', signature, source);
-
-    return signature;
-  }
-
   async assignRoute(route, digest) {
     this._internalRoutingMap.set(route, digest);
-    await this._serviceCycle('onAssignRoute', digest);
+    await this._lifecycle.trigger('onAssignRoute', digest);
   }
 
   async removeRoute(route) {
     this._internalRoutingMap.delete(route);
-    await this._serviceCycle('onRemoveRoute', digest);
+    await this._lifecycle.trigger('onRemoveRoute', digest);
   }
 
   getRoute(route) {
@@ -114,8 +87,19 @@ class Elio extends EventEmitter {
     });
   }
 
+  async deploy(identity, source, signature, dependencies) {
+    const deployment = { identity, source, signature, dependencies };
+    await this._lifecycle.trigger('onDeploy', deployment);
+ 
+    // Deploy Source
+    const results = await this._clusterManager.allocate(signature, source);
+    this.emit('deploy', signature, source);
+
+    return signature;
+  }
+
   async undeploy(digest) {
-    await this._serviceCycle('onInvokeRoute', digest);
+    await this._lifecycle.trigger('onInvokeRoute', digest);
 
     const results = await this._clusterManager.deallocate(digest);
     this.emit('undeploy', digest);
