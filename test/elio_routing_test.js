@@ -56,9 +56,9 @@ describe('Elio Routing Test Suite', function () {
       ttl: 30000
     });
 
-    elio.setIdentityResolver((identity, callback) => {
-      if (identity === 'test') callback(null, Buffer.from(publicKey));
-      else return callback(new Error("Bad identity"));
+    elio.setIdentityResolver((identity) => {
+      if (identity === 'test') return Buffer.from(publicKey);
+      else throw new Error("Bad identity");
     });
 
     elio.on('ready', done);
@@ -71,7 +71,7 @@ describe('Elio Routing Test Suite', function () {
     expect(elio).to.have.property('listDeployments');
   });
 
-  it('should deploy new functions', function (done) {
+  it('should deploy new functions', async () => {
     const s1 = `
       module.exports = async (context) => ({
         result: context.name || "echo"
@@ -83,16 +83,11 @@ describe('Elio Routing Test Suite', function () {
         type: 's2'
       });
     `;
-    elio.deploy('test', s1, signSource(s1), (error, digest) => {
-      expect(error).to.be.null;
-      f1_digest = digest;
-      elio.deploy('test', s2, signSource(s2), (error, digest) => {
-        expect(error).to.be.null;
-        f2_digest = digest;
-        expect(elio.listDeployments().map((r) => r[0])).to.have.members([f1_digest, f2_digest]);
-        done();
-      });
-    });
+    const digest = await elio.deploy('test', s1, signSource(s1));
+    f1_digest = digest;
+    const digest2 = await elio.deploy('test', s2, signSource(s2));
+    f2_digest = digest2;
+    expect(elio.listDeployments().map((r) => r[0])).to.have.members([f1_digest, f2_digest]);
   });
 
   it('should create a route for the function', function () {

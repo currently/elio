@@ -21,7 +21,9 @@ class Elio extends EventEmitter {
     if (config.modulePath) this._clusterManager.setModulePath(config.modulePath);
     this._clusterManager.once('online', () => this._completeCriteria('nodesReady'));
     this._resolvers = {
-      IDENTITY: (identity, callback) => callback(new Error("No Identity Resolver was registered"))
+      IDENTITY: async (identity) => {
+        throw new Error("No Identity Resolver was registered");
+      }
     };
   }
 
@@ -44,9 +46,8 @@ class Elio extends EventEmitter {
     this._resolvers.IDENTITY = handler; 
   }
 
-  async unsafe_deploy(digest, source, callback) {
+  async unsafe_deploy(digest, source) {
     const results = await this._clusterManager.allocate(digest, source);
-    callback(null, results);
     this.emit('deploy', digest, source);
   }
 
@@ -62,24 +63,24 @@ class Elio extends EventEmitter {
     return this.invoke(this._internalRoutingMap.get(route), context);
   }
 
-  deploy(identity, source, signature, callback) {
+  async deploy(identity, source, signature) {
     // Verify Message Signature (RSA-SHA256)
-    this._resolvers.IDENTITY(identity, (error, publicKey) => {
-      if (error) return callback(error);
-      if (!publicKey || !Buffer.isBuffer(publicKey)) return callback(new Error("Invalid identity"));
+    const publicKey = await this._resolvers.IDENTITY(identity);
+    if (!publicKey || !Buffer.isBuffer(publicKey)) throw new Error("Invalid identity");
+    
+    const RSA_SHA_256 = crypto.createVerify('RSA-SHA256');
+    RSA_SHA_256.update(source);
 
-      const RSA_SHA_256 = crypto.createVerify('RSA-SHA256');
-      RSA_SHA_256.update(source);
+    if (RSA_SHA_256.verify(publicKey, signature, 'hex')) {
+      // Override publicKey Buffer in memory
+      publicKey.fill && publicKey.fill('0');
+      // Deploy Source
+      this.unsafe_deploy(signature, source);
 
-      if (RSA_SHA_256.verify(publicKey, signature, 'hex')) {
-        // Override publicKey Buffer in memory
-        publicKey.fill && publicKey.fill('0');
-        // Deploy Source
-        this.unsafe_deploy(signature, source, (error) => callback(error, signature));
-      } else {
-        return callback(new Error("Bad signature"));
-      }
-    });
+      return signature;
+    } else {
+      throw new Error("Bad signature");
+    }
   }
 
   assignRoute(route, digest) {
@@ -103,9 +104,8 @@ class Elio extends EventEmitter {
     });
   }
 
-  async undeploy(digest, callback) {
+  async undeploy(digest) {
     const results = await this._clusterManager.deallocate(digest);
-    callback(null, results);
     this.emit('undeploy', digest);
   }
 

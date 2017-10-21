@@ -56,10 +56,9 @@ describe('Elio Integration Test Suite', function () {
       ttl: 30000
     });
 
-    elio.setIdentityResolver((identity, callback) => {
-      if (identity === 'test') return callback(null, Buffer.from(publicKey));
-      else if (identity === 'banned_identity') return callback(new Error("Identity was banned"));
-      else return callback();
+    elio.setIdentityResolver(async (identity) => {
+      if (identity === 'test') return Buffer.from(publicKey);
+      else if (identity === 'banned_identity') throw new Error("Identity was banned");
     });
 
     elio.on('ready', done);
@@ -72,48 +71,45 @@ describe('Elio Integration Test Suite', function () {
     expect(elio).to.have.property('listDeployments');
   });
 
-  it('should deploy new function', function (done) {
+  it('should deploy new function', async () => {
     const source = `
       module.exports = async (context) => ({
         result: context.name || "echo"
       });
     `;
-    elio.deploy('test', source, signSource(source), (error, digest) => {
-      expect(error).to.be.null;
-      expect(digest).to.be.equal(signSource(source));
-      f1_digest = digest;
-      done();
-    });
+    const digest = await elio.deploy('test', source, signSource(source));
+    expect(digest).to.be.equal(signSource(source));
+    f1_digest = digest;
   });
 
-  it('should reject a bad identity', function (done) {
+  it('should reject a bad identity', async () => {
     const source = `console.log("test")`;
-    elio.deploy('bad_identity', source, signSource(source), (error, digest) => {
-      expect(error).to.not.be.null;
+    try {
+      await elio.deploy('bad_identity', source, signSource(source));
+    } catch (error) {
+      expect(error).to.not.be.undefined;
       expect(error).to.have.property("message", "Invalid identity");
-      expect(digest).to.be.undefined;
-      done();
-    });
+    }
   });
 
-  it('should reject a bad signature', function (done) {
+  it('should reject a bad signature', async () => {
     const source = `console.log("test")`;
-    elio.deploy('test', source, signSource(source + '; console.log("BADCODE")'), (error, digest) => {
+    try {
+      await elio.deploy('test', source, signSource(source + '; console.log("BADCODE")'));
+    } catch (error) {
       expect(error).to.not.be.null;
       expect(error).to.have.property("message", "Bad signature");
-      expect(digest).to.be.undefined;
-      done();
-    });
+    }
   });
 
-  it('should have passthrough errors for identity resolver', function (done) {
+  it('should have passthrough errors for identity resolver', async () => {
     const source = `console.log("test")`;
-    elio.deploy('banned_identity', source, signSource(source), (error, digest) => {
+    try {
+      await elio.deploy('banned_identity', source, signSource(source));
+    } catch (error) {
       expect(error).to.not.be.null;
       expect(error).to.have.property("message", "Identity was banned");
-      expect(digest).to.be.undefined;
-      done();
-    });
+    }
   });
 
   it('should list function under available deployments', function () {
@@ -127,12 +123,8 @@ describe('Elio Integration Test Suite', function () {
     });
   });
 
-  it('should undeploy a function', function (done) {
-    elio.undeploy(f1_digest, function (error) {
-      if (error) throw error;
-
-      expect(elio.listDeployments().map((r) => r[0])).to.not.have.members([f1_digest]);
-      done();
-    });
+  it('should undeploy a function', async () => {
+    await elio.undeploy(f1_digest);
+    expect(elio.listDeployments().map((r) => r[0])).to.not.have.members([f1_digest]);
   });
 });
