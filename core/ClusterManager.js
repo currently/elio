@@ -4,9 +4,10 @@ const UniformDistributionMap = require('./structures/UniformDistributionMap');
 const EventEmitter = require('events').EventEmitter;
 
 class ClusterManager extends EventEmitter {
-  constructor(totalNodes, ttl) {
+  constructor(totalNodes, ttl, lifecycle) {
     super();
 
+    this._lifecycle = lifecycle;
     this._totalNodes = totalNodes;
     this._unwarmedNodes = 0;
     this._allocations = new Map();
@@ -59,6 +60,8 @@ class ClusterManager extends EventEmitter {
 
     node.on('message', (message) => this._handleMessage(message, node));
 
+    await this._lifecycle.trigger('onNodeOnline', node, this);
+
     if (this._allocations.size) {
       let list = [];
       this._allocations.forEach((source, digest) => {
@@ -82,6 +85,7 @@ class ClusterManager extends EventEmitter {
     this.nodes.add(node);
     this._unwarmedNodes--;
     this.emit('ready', node);
+    await this._lifecycle.trigger('onNodeReady', node, this);
   }
 
   setModulePath(p) {

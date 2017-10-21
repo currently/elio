@@ -12,16 +12,16 @@ class Elio extends EventEmitter {
     super();
 
     const { port, maxNodes, ttl } = config;
+    this._lifecycle = new LifeCycle();
     this._readyCriteria = {
       nodesReady: false
     };
     this._hasBeenReadyBefore = false;
     this._internalSourceRegistry = new Map();
     this._internalRoutingMap = new Map();
-    this._clusterManager = new ClusterManager(maxNodes || 5, ttl || 300000);
+    this._clusterManager = new ClusterManager(maxNodes || 5, ttl || 300000, this._lifecycle);
     if (config.modulePath) this._clusterManager.setModulePath(config.modulePath);
     this._clusterManager.once('online', () => this._completeCriteria('nodesReady'));
-    this._lifecycle = new LifeCycle();
   }
 
   _completeCriteria(key) {
