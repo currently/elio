@@ -2,7 +2,8 @@
 const vm = require('vm');
 const path = require('path');
 const { runInNewContext } = vm;
-const REFAllocationMap = new Map();
+const REFAllocationMap = new Map()
+const SANDBOX_EXPANSION_SCRIPTS = [];
 
 let NODE_CONFIG = {};
 let NODE_READY = false;
@@ -22,6 +23,18 @@ let NODE_CAPABILITIES = {
   Buffer: true
 };
 
+const EXPAND_SANDBOX = async (source) => {
+  const sandbox = Object.assign({}, global, { module: {} });
+
+  runInNewContext(new Buffer(source).toString('utf8'), sandbox);
+  if (typeof sandbox.module.exports === 'function') {
+    SANDBOX_EXPANSION_SCRIPTS.push(sandbox.module.exports);
+    return true;
+  }
+
+  return false;
+};
+
 const ALLOCATE_REF = (digest, ref) => {
   REFAllocationMap.set(digest, ref);
 };
@@ -31,6 +44,7 @@ const DEALLOCATE_REF = (digest) => {
 };
 
 const REF_DEPLOY = async (digest, source) => {
+  const scriptsLength = SANDBOX_EXPANSION_SCRIPTS.length;
   const sandbox = {
     module: {},
     console: console, /** @todo: Replace console with output stream */
@@ -44,6 +58,11 @@ const REF_DEPLOY = async (digest, source) => {
       ? LOCAL_REQUIRE
       : SUPPORT_ERROR("require")
   };
+
+  // ALlow expansion scripts to modify sandbox
+  for (let i = 0; i < scriptsLength; i++) {
+    await SANDBOX_EXPANSION_SCRIPTS[i](sandbox);
+  }
 
   runInNewContext(new Buffer(source).toString('utf8'), sandbox);
   ALLOCATE_REF(digest, sandbox.module.exports);
@@ -106,8 +125,14 @@ const HANDLE_IPC_MESSAGE = function (packet) {
     case 'REFUndeploy':
       return ACK(REF_UNDEPLOY, packet.digest);
 
+    case 'EXPAND_SANDBOX':
+      return ACK(EXPAND_SANDBOX, packet.source);
+
     case 'SET_CONFIG':
       return ACK(SET_CONFIG, packet.config);
+
+    case 'GET_INFO':
+      return ACK(() => ({ lang: "javascript", host: "node" }));
 
     case 'PING':
       return ACK(() => ({ pong: true }));

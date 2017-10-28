@@ -1,7 +1,7 @@
 const Elio = require('../core/Elio');
 const request = require('request');
 const crypto = require('crypto');
-const { Signature } = Elio.services;
+const { Signature, Package } = Elio.services;
 
 const privateKey =
   `-----BEGIN RSA PRIVATE KEY-----
@@ -42,7 +42,6 @@ const GET_JSON_FROM_RESPONSE = (response, callback) => {
 };
 
 describe('Elio Integration Test Suite', function () {
-  const port = 8090;
   let elio, f1_digest, f2_digest;
   const signSource = (source) => {
     const sign = crypto.createSign('RSA-SHA256');
@@ -52,11 +51,11 @@ describe('Elio Integration Test Suite', function () {
 
   before(function (done) {
     elio = new Elio({
-      port,
       maxNodes: 3,
       ttl: 30000
     });
 
+    elio.use(new Package());
     elio.use(new Signature([["test", Buffer.from(publicKey)]]));
 
     elio.on('ready', done);
@@ -72,7 +71,8 @@ describe('Elio Integration Test Suite', function () {
   it('should deploy new function', async () => {
     const source = `
       module.exports = async (context) => ({
-        result: context.name || "echo"
+        result: context.name || "echo",
+        x
       });
     `;
     const digest = await elio.deploy('test', source, signSource(source));
@@ -117,7 +117,8 @@ describe('Elio Integration Test Suite', function () {
   it('should invoke a function through local API', async () => {
     const response = await elio.invoke(f1_digest, { name: 'test' });
     expect(response).to.eql({
-      result: 'test'
+      result: 'test',
+      x: 2
     });
   });
 

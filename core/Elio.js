@@ -11,7 +11,7 @@ class Elio extends EventEmitter {
   constructor(config) {
     super();
 
-    const { port, maxNodes, ttl } = config;
+    const { maxNodes, ttl } = config;
     this._lifecycle = new LifeCycle();
     this._readyCriteria = {
       nodesReady: false
@@ -21,7 +21,7 @@ class Elio extends EventEmitter {
     this._internalRoutingMap = new Map();
     this._clusterManager = new ClusterManager(maxNodes || 5, ttl || 300000, this._lifecycle);
     if (config.modulePath) this._clusterManager.setModulePath(config.modulePath);
-    this._clusterManager.once('online', () => this._completeCriteria('nodesReady'));
+    this._clusterManager.once('ready', () => this._completeCriteria('nodesReady'));
   }
 
   _completeCriteria(key) {

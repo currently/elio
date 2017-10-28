@@ -1,3 +1,4 @@
 module.exports = {
-  Signature: require('./Signature')
+  Signature: require('./Signature'),
+  Package: require('./Package')
 };
