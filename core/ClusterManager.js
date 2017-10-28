@@ -1,3 +1,4 @@
+const path = require('path');
 const cluster = require('cluster');
 const shortid = require('shortid');
 const UniformDistributionMap = require('./structures/UniformDistributionMap');
@@ -29,7 +30,7 @@ class ClusterManager extends EventEmitter {
     }, 5000);
 
     cluster.setupMaster({
-      exec: './Nodes/Node.js',
+      exec: path.resolve(__dirname, '../nodes/Node.js'),
       args: ['--ttl', this._nodeTTL],
       silent: true
     });
