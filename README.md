@@ -48,6 +48,10 @@ const elio = new Elio();
 elio.use(new Signature([["userA", Buffer.from(publicKey)]]));
 ```
 
+## Services
+- Package (support for NPM)
+- Signature (key pair signing for all deployments)
+
 ## Roadmap
 - Support for pipelines
 - Support for A/B

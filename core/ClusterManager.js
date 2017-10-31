@@ -25,10 +25,6 @@ class ClusterManager extends EventEmitter {
     this._awaiting = new Map();
     this._nodeTTL = ttl || (60 * 5 * 1000); // Maximum of 5 minutes scheduling and 10 minutes runtime
 
-    setInterval(() => {
-      console.log(this.getTrackedStats());
-    }, 5000);
-
     cluster.setupMaster({
       exec: path.resolve(__dirname, '../nodes/Node.js'),
       args: ['--ttl', this._nodeTTL],

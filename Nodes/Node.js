@@ -24,7 +24,7 @@ let NODE_CAPABILITIES = {
 };
 
 const EXPAND_SANDBOX = async (source) => {
-  const sandbox = Object.assign({}, global, { module: {} });
+  const sandbox = Object.assign({}, global, { module: {}, require });
 
   runInNewContext(new Buffer(source).toString('utf8'), sandbox);
   if (typeof sandbox.module.exports === 'function') {

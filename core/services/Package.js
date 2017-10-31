@@ -1,28 +1,54 @@
-class Package {
-  constructor() {
+const fs = require('fs');
+const npmi = require('npmi');
+const getPackageJson = require('get-package-json-from-registry');
 
+class Package {
+  constructor(packageDirectory) {
+    if (!fs.existsSync(packageDirectory)) fs.mkdirSync(packageDirectory);
+    this.packageDirectory = packageDirectory;
   }
   
   async onDeploy(deployment) {
-    const { dependencies } = deployment;
+    let { dependencies } = deployment;
     if (!Array.isArray(dependencies) || !dependencies.length) return;
 
-    /** @todo: Add package installaion */
+    dependencies.map((dependency) => new Promise(async (resolve, reject) => {
+      const { name, version } = await getPackageJson(dependency);
+      npmi({
+        name, 
+        version,
+        path: this.packageDirectory
+      }, (error, results) => {
+        if (error) return reject(error);
+        resolve(results);
+      })
+    }));
+
+    await Promise.all(dependencies);
   }
 
   async onNodeOnline(node, cluster) {
     const registered = await cluster.unicast({
       type: "EXPAND_SANDBOX",
       source: `
+        const path = require('path');
+        const { resolve } = require;
+        const packageDirectory = "${this.packageDirectory}/node_modules/";
+
         module.exports = async (sandbox) => {
-          sandbox.x = 2;
+          sandbox.require = function ELIO_RESOLVER(package) {
+            const cleanPackage = path.normalize(package);
+            const packagePath = path.join(packageDirectory, cleanPackage);
+            const resolvedPath = resolve(packagePath);
+            return require(resolvedPath);
+          };
         };
       `
     }, node);
   }
 
   get registeredHooks() {
-    return ["onNodeOnline"];
+    return ["onNodeOnline", "onDeploy"];
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "elio",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Full-blown, fully open-source server-less infrastructure for Node.js that can run anywhere, anytime and at any scale.",
   "main": "core/Elio.js",
   "scripts": {
@@ -27,6 +27,8 @@
   },
   "homepage": "https://github.com/schahriar/elio#readme",
   "dependencies": {
+    "get-package-json-from-registry": "^2.2.1",
+    "npmi": "^3.0.0",
     "shortid": "^2.2.8"
   },
   "devDependencies": {
