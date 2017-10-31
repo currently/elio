@@ -1,10 +1,13 @@
 // Cluster Node Daemon
 const vm = require('vm');
 const path = require('path');
+const util = require('util');
+const setImmediatePromise = util.promisify(setImmediate);
 const { runInNewContext } = vm;
 const REFAllocationMap = new Map()
 const SANDBOX_EXPANSION_SCRIPTS = [];
 
+let INFLIGHT_INVOKATIONS = 0;
 let NODE_CONFIG = {};
 let NODE_READY = false;
 
@@ -12,6 +15,12 @@ const SUPPORT_ERROR = (type) => {
   return () => {
     throw new Error(`No support for ${type} in this node`);
   };
+};
+
+const GRACEFUL_SHUTDOWN = async (ttl) => {
+  if (INFLIGHT_INVOKATIONS < 0) return setImmediate(() => process.exit(0));
+  await setImmediatePromise();
+  return await GRACEFUL_SHUTDOWN(ttl);
 };
 
 const LOCAL_REQUIRE = function (p) {
@@ -75,11 +84,15 @@ const REF_UNDEPLOY = async (digest) => {
 };
 
 const REF_INVOKE_FROM_ALLOCATION = async (digest, context) => {
-  return REFAllocationMap.get(digest)(context || {});
+  const result = REFAllocationMap.get(digest)(context || {});
+  INFLIGHT_INVOKATIONS--;
+  return result;
 };
 
 const REF_INVOKE = async (digest, context) => {
+  INFLIGHT_INVOKATIONS++;
   if (!REFAllocationMap.has(digest)) {
+    INFLIGHT_INVOKATIONS--;
     const error = new Error("Digest was not found");
     error.code = 404;
     throw error;
@@ -133,6 +146,9 @@ const HANDLE_IPC_MESSAGE = function (packet) {
 
     case 'GET_INFO':
       return ACK(() => ({ lang: "javascript", host: "node" }));
+
+    case 'GRACEFUL_SHUTDOWN':
+      return ACK(GRACEFUL_SHUTDOWN, packet.ttl);
 
     case 'PING':
       return ACK(() => ({ pong: true }));

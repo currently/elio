@@ -171,7 +171,7 @@ class ClusterManager extends EventEmitter {
 
   graceFullyKillNode(node, ttl) {
     this.distributionMap.delete(node);
-    node.disconnect();
+    this.unicast({ type: "GRACEFUL_SHUTDOWN", ttl }, node);
     this.rebalance();
 
     if (ttl) {
