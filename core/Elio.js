@@ -1,6 +1,5 @@
 const vm = require('vm');
 const { runInNewContext } = vm;
-const anyBody = require('body/any');
 const EventEmitter = require('events').EventEmitter;
 const Services = require('./services');
 const LifeCycle = require('./LifeCycle');
