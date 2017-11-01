@@ -11,7 +11,7 @@ class Elio extends EventEmitter {
     super();
 
     const { maxNodes, ttl } = config;
-    this._lifecycle = new LifeCycle();
+    this._lifecycle = new LifeCycle(this);
     this._readyCriteria = {
       nodesReady: false
     };
@@ -38,6 +38,10 @@ class Elio extends EventEmitter {
     }
   }
 
+  flushDeployments() {
+    this._clusterManager.flushAllocations();
+  }
+
   use(service) {
     const { registeredHooks } = service;
     const length = (registeredHooks)?registeredHooks.length:0;
@@ -48,7 +52,8 @@ class Elio extends EventEmitter {
   }
 
   async invoke(digest, context) {
-    await this._lifecycle.trigger('onInvoke', digest, context);
+    const allocated = this._clusterManager.hasAllocation(digest);
+    await this._lifecycle.trigger('onInvoke', digest, context, allocated);
 
     return await this._clusterManager.anycast(digest, {
       type: 'REFInvoke',

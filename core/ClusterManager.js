@@ -204,8 +204,16 @@ class ClusterManager extends EventEmitter {
     });
   }
 
+  hasAllocation(digest) {
+    return this._allocations.has(digest);
+  }
+
   getAllocations() {
     return this._allocations;
+  }
+
+  flushAllocations() {
+    this._allocations = new Map();
   }
 
   async anycast(digest, message) {

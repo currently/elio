@@ -1,6 +1,7 @@
 class LifeCycle {
-  constructor() {
+  constructor(instance) {
     this.hooks = new Map();
+    this.instance = instance;
   }
 
   add(hook, handle) {
@@ -18,6 +19,9 @@ class LifeCycle {
   async trigger(hook, ...args) {
     const hooks = this.hooks.get(hook) || [];
     const hookSize = hooks.length;
+
+    // Add instance to args
+    args.push(this.instance);
 
     for (let i = 0; i < hookSize; i++) {
       await hooks[i][hook](...args);
