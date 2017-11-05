@@ -4,7 +4,7 @@ const EventEmitter = require('events').EventEmitter;
 const Services = require('./services');
 const LifeCycle = require('./LifeCycle');
 
-const ClusterManager = require('./ClusterManager');
+const WatchdogManager = require('./WatchdogManager');
 
 class Elio extends EventEmitter {
   constructor(config) {
@@ -18,9 +18,9 @@ class Elio extends EventEmitter {
     this._hasBeenReadyBefore = false;
     this._internalSourceRegistry = new Map();
     this._internalRoutingMap = new Map();
-    this._clusterManager = new ClusterManager(maxNodes || 5, ttl || 300000, this._lifecycle);
-    if (config.modulePath) this._clusterManager.setModulePath(config.modulePath);
-    this._clusterManager.once('ready', () => this._completeCriteria('nodesReady'));
+    this._watchdog = new WatchdogManager(maxNodes || 5, ttl || 300000, this._lifecycle);
+    if (config.modulePath) this._watchdog.setModulePath(config.modulePath);
+    this._watchdog.once('ready', () => this._completeCriteria('nodesReady'));
   }
 
   _completeCriteria(key) {
@@ -39,7 +39,7 @@ class Elio extends EventEmitter {
   }
 
   flushDeployments() {
-    this._clusterManager.flushAllocations();
+    this._watchdog.flushAllocations();
   }
 
   use(service) {
@@ -52,10 +52,10 @@ class Elio extends EventEmitter {
   }
 
   async invoke(digest, context) {
-    const allocated = this._clusterManager.hasAllocation(digest);
+    const allocated = this._watchdog.hasAllocation(digest);
     await this._lifecycle.trigger('onInvoke', digest, context, allocated);
 
-    return await this._clusterManager.anycast(digest, {
+    return await this._watchdog.anycast(digest, {
       type: 'REFInvoke',
       digest,
       context
@@ -96,7 +96,7 @@ class Elio extends EventEmitter {
     await this._lifecycle.trigger('onDeploy', deployment);
  
     // Deploy Source
-    const results = await this._clusterManager.allocate(signature, source);
+    const results = await this._watchdog.allocate(signature, source);
     this.emit('deploy', signature, source);
 
     return signature;
@@ -105,12 +105,12 @@ class Elio extends EventEmitter {
   async undeploy(digest) {
     await this._lifecycle.trigger('onInvokeRoute', digest);
 
-    const results = await this._clusterManager.deallocate(digest);
+    const results = await this._watchdog.deallocate(digest);
     this.emit('undeploy', digest);
   }
 
   listDeployments() {
-    return Array.from(this._clusterManager.getAllocations());
+    return Array.from(this._watchdog.getAllocations());
   }
 
   get services() {

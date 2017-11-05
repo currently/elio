@@ -4,7 +4,7 @@ const shortid = require('shortid');
 const ConsistentMap = require('./structures/ConsistentMap');
 const EventEmitter = require('events').EventEmitter;
 
-class ClusterManager extends EventEmitter {
+class WatchdogManager extends EventEmitter {
   constructor(totalNodes, ttl, lifecycle) {
     super();
 
@@ -240,4 +240,4 @@ class ClusterManager extends EventEmitter {
   }
 }
 
-module.exports = ClusterManager;
+module.exports = WatchdogManager;
