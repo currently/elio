@@ -2,6 +2,7 @@ const path = require('path');
 const cluster = require('cluster');
 const shortid = require('shortid');
 const ConsistentMap = require('./structures/ConsistentMap');
+const MapSet = require('./structures/MapSet');
 const EventEmitter = require('events').EventEmitter;
 
 class WatchdogManager extends EventEmitter {
@@ -11,7 +12,8 @@ class WatchdogManager extends EventEmitter {
     this._lifecycle = lifecycle;
     this._totalNodes = totalNodes;
     this._unwarmedNodes = 0;
-    this._allocations = new Map();
+    this._allocationCache = new Map();
+    this._allocations = new MapSet();
     this._env = {
       epoch: process.hrtime()
     };
@@ -54,35 +56,15 @@ class WatchdogManager extends EventEmitter {
 
   async _handleNodeOnline(node) {
     this.emit('online', node);
-
     node.on('message', (message) => this._handleMessage(message, node));
 
     await this._lifecycle.trigger('onNodeOnline', node, this);
-    
-    this.consistentMap.add(node);
-
-    if (this._allocations.size) {
-      let list = [];
-      this._allocations.forEach((source, digest) => {
-        // Only deploy matching digests
-        if (this.consistentMap.get(digest) !== node) return;
-        
-        const id = shortid.generate();
-        list.push(this.unicast({
-          id,
-          type: 'REFDeploy',
-          digest,
-          source
-        }, node));
-      });
-      // Wait for all allocations to be done in parallel
-      await Promise.all(list);
-    }
 
     setTimeout(() => {
       this.graceFullyKillNode(node, this._nodeTTL);
     }, this._nodeTTL);
 
+    this.consistentMap.add(node);
     this.nodes.add(node);
     this._unwarmedNodes--;
     this.emit('ready', node);
@@ -192,8 +174,9 @@ class WatchdogManager extends EventEmitter {
   }
 
   async allocate(digest, source) {
-    this._allocations.set(digest, source);
     const node = this.consistentMap.get(digest);
+    this._allocationCache.set(digest, source);
+    this._allocations.add(node, digest);
 
     return await this.unicast({
       type: 'REFDeploy',
@@ -203,7 +186,9 @@ class WatchdogManager extends EventEmitter {
   }
 
   async deallocate(digest) {
-    this._allocations.delete(digest);
+    const node = this.consistentMap.get(digest);
+    this._allocations.remove(node, digest);
+    this._allocationCache.delete(digest);
 
     /* We broadcast to all in case
        the hashring was rebalanced
@@ -214,16 +199,30 @@ class WatchdogManager extends EventEmitter {
     });
   }
 
+  hasCachedAllocation(digest) {
+    return this._allocationCache.has(digest);
+  }
+
+  async allocateFromCache(digest) {
+    const node = this.consistentMap.get(digest);
+
+    await this.allocate(digest, this._allocationCache.get(digest));
+    return true;
+  }
+
   hasAllocation(digest) {
-    return this._allocations.has(digest);
+    const node = this.consistentMap.get(digest);
+
+    return this._allocationCache.has(digest) && node && this.nodes.has(node) && this._allocations.has(node, digest);
   }
 
   getAllocations() {
-    return this._allocations;
+    return this._allocationCache;
   }
 
   flushAllocations() {
-    this._allocations = new Map();
+    this._allocationCache = new Map();
+    this._allocations = new MapSet();
   }
 
   async anycast(digest, message) {
