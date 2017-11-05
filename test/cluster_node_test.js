@@ -8,7 +8,7 @@ describe('Cluster Node integration test suite', function () {
   let listener = new EventEmitter();
 
   before(function () {
-    vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../Nodes/Node.js')), {
+    vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../watchdogs/Node.js')), {
       process: {
         on: (event, handler) => listener.on(event, handler),
         send: (...args) => listener.emit(':incoming_message', ...args)

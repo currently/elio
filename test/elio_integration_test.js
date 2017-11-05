@@ -55,7 +55,6 @@ describe('Elio Integration Test Suite', function () {
       ttl: 30000
     });
 
-    elio.use(new Package());
     elio.use(new Signature([["test", Buffer.from(publicKey)]]));
 
     elio.on('ready', done);
@@ -71,8 +70,7 @@ describe('Elio Integration Test Suite', function () {
   it('should deploy new function', async () => {
     const source = `
       module.exports = async (context) => ({
-        result: context.name || "echo",
-        x
+        result: context.name || "echo"
       });
     `;
     const digest = await elio.deploy('test', source, signSource(source));
@@ -117,8 +115,7 @@ describe('Elio Integration Test Suite', function () {
   it('should invoke a function through local API', async () => {
     const response = await elio.invoke(f1_digest, { name: 'test' });
     expect(response).to.eql({
-      result: 'test',
-      x: 2
+      result: 'test'
     });
   });
 

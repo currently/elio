@@ -26,7 +26,7 @@ class ClusterManager extends EventEmitter {
     this._nodeTTL = ttl || (60 * 5 * 1000); // Maximum of 5 minutes scheduling and 10 minutes runtime
 
     cluster.setupMaster({
-      exec: path.resolve(__dirname, '../nodes/Node.js'),
+      exec: path.resolve(__dirname, '../watchdogs/Node.js'),
       args: ['--ttl', this._nodeTTL],
       silent: true
     });
