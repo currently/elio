@@ -58,10 +58,15 @@ class WatchdogManager extends EventEmitter {
     node.on('message', (message) => this._handleMessage(message, node));
 
     await this._lifecycle.trigger('onNodeOnline', node, this);
+    
+    this.consistentMap.add(node);
 
     if (this._allocations.size) {
       let list = [];
       this._allocations.forEach((source, digest) => {
+        // Only deploy matching digests
+        if (this.consistentMap.get(digest) !== node) return;
+        
         const id = shortid.generate();
         list.push(this.unicast({
           id,
@@ -78,7 +83,6 @@ class WatchdogManager extends EventEmitter {
       this.graceFullyKillNode(node, this._nodeTTL);
     }, this._nodeTTL);
 
-    this.consistentMap.add(node);
     this.nodes.add(node);
     this._unwarmedNodes--;
     this.emit('ready', node);
@@ -189,15 +193,21 @@ class WatchdogManager extends EventEmitter {
 
   async allocate(digest, source) {
     this._allocations.set(digest, source);
-    return await this.broadcast({
+    const node = this.consistentMap.get(digest);
+
+    return await this.unicast({
       type: 'REFDeploy',
       digest,
       source
-    });
+    }, node);
   }
 
   async deallocate(digest) {
     this._allocations.delete(digest);
+
+    /* We broadcast to all in case
+       the hashring was rebalanced
+    */
     return await this.broadcast({
       type: 'REFUndeploy',
       digest
