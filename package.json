@@ -28,6 +28,7 @@
   "homepage": "https://github.com/schahriar/elio#readme",
   "dependencies": {
     "get-package-json-from-registry": "^2.2.1",
+    "hashring": "^3.2.0",
     "npmi": "^3.0.0",
     "shortid": "^2.2.8"
   },

@@ -1,7 +1,7 @@
 const path = require('path');
 const cluster = require('cluster');
 const shortid = require('shortid');
-const UniformDistributionMap = require('./structures/UniformDistributionMap');
+const ConsistentMap = require('./structures/ConsistentMap');
 const EventEmitter = require('events').EventEmitter;
 
 class ClusterManager extends EventEmitter {
@@ -21,7 +21,7 @@ class ClusterManager extends EventEmitter {
       trackedTimeTotal: 0,
       start_time: process.hrtime()
     };
-    this.distributionMap = new UniformDistributionMap();
+    this.consistentMap = new ConsistentMap();
     this._awaiting = new Map();
     this._nodeTTL = ttl || (60 * 5 * 1000); // Maximum of 5 minutes scheduling and 10 minutes runtime
 
@@ -78,7 +78,7 @@ class ClusterManager extends EventEmitter {
       this.graceFullyKillNode(node, this._nodeTTL);
     }, this._nodeTTL);
 
-    this.distributionMap.add(node);
+    this.consistentMap.add(node);
     this.nodes.add(node);
     this._unwarmedNodes--;
     this.emit('ready', node);
@@ -137,7 +137,7 @@ class ClusterManager extends EventEmitter {
   }
 
   rebalance() {
-    const additionalNodes = this._totalNodes - (this.distributionMap.size + this._unwarmedNodes);
+    const additionalNodes = this._totalNodes - (this.consistentMap.size + this._unwarmedNodes);
 
     if (additionalNodes < 1) return;
     for (let i = 0; i < additionalNodes; i++) {
@@ -161,16 +161,16 @@ class ClusterManager extends EventEmitter {
       } else {
         console.log(`Node ${node.id} has finished execution.`);
       }
-      this.distributionMap.delete(node);
+      this.consistentMap.delete(node);
       this.nodes.delete(node);
       this.rebalance();
     });
 
-    node.on('disconnect', () => this.nodes.delete(node) && this.distributionMap.delete(node) && this.rebalance());
+    node.on('disconnect', () => this.nodes.delete(node) && this.consistentMap.delete(node) && this.rebalance());
   }
 
   graceFullyKillNode(node, ttl) {
-    this.distributionMap.delete(node);
+    this.consistentMap.delete(node);
     this.unicast({ type: "GRACEFUL_SHUTDOWN", ttl }, node);
     this.rebalance();
 
@@ -182,7 +182,7 @@ class ClusterManager extends EventEmitter {
   }
 
   killNode(node) {
-    this.distributionMap.delete(node);
+    this.consistentMap.delete(node);
     this.nodes.delete(node);
     node.kill('SIGTERM');
   }
@@ -217,10 +217,10 @@ class ClusterManager extends EventEmitter {
   }
 
   async anycast(digest, message) {
-    const provider = this.distributionMap.getNextAvailableProvider(digest);
-    if (!provider || !Array.isArray(provider) || !provider[0]) throw new Error("No providers were found");
+    const provider = this.consistentMap.get(digest);
+    if (!provider) throw new Error("No providers were found");
 
-    return await this.unicast(message, provider[0]);
+    return await this.unicast(message, provider);
   }
 
   async unicast(message, node) {
@@ -231,7 +231,7 @@ class ClusterManager extends EventEmitter {
   async broadcast(message) {
     let list = [];
 
-    this.distributionMap.forEach((node, size) => {
+    this.consistentMap.forEach((node) => {
       message.id = shortid.generate();
       list.push(this.unicast(message, node));
     });
