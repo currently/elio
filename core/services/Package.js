@@ -34,9 +34,11 @@ class Package {
         const path = require('path');
         const { resolve } = require;
         const packageDirectory = "${this.packageDirectory}/node_modules/";
+        const core = ['util', 'assert', 'crypto', 'dns', 'events', 'path', 'querystring', 'stream', 'url', 'zlib'];
 
         module.exports = async (sandbox) => {
           sandbox.require = function ELIO_RESOLVER(package) {
+            if (core[package]) return require(package);
             const cleanPackage = path.normalize(package);
             const packagePath = path.join(packageDirectory, cleanPackage);
             const resolvedPath = resolve(packagePath);
