@@ -84,7 +84,8 @@ const REF_UNDEPLOY = async (digest) => {
 };
 
 const REF_INVOKE_FROM_ALLOCATION = async (digest, context) => {
-  const result = REFAllocationMap.get(digest)(context || {});
+  const handle = REFAllocationMap.get(digest);
+  const result = await handle(context || {});
   INFLIGHT_INVOKATIONS--;
   return result;
 };
