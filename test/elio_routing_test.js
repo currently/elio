@@ -104,6 +104,24 @@ describe('Elio Routing Test Suite', function () {
     expect(response.value).to.be.equal(Math.pow(2, 4));
   });
 
+  it('should pile pipelines', async () => {
+    const s1 = `
+      module.exports = async ({ value }) => ({ value: value * 2.5 });
+    `;
+    const digest = await elio.deploy('test', s1, signSource(s1));
+    await elio.createPipeline('multiply', [digest, digest]);
+    
+    const response = await elio.invokePipeline('multiply', { value: 4 });
+    expect(response.value).to.be.equal(25);
+  });
+
+  it('should rollback pipelines', async () => {
+    await elio.rollbackPipeline('multiply');
+    
+    const response = await elio.invokePipeline('multiply', { value: 4 });
+    expect(response.value).to.be.equal(Math.pow(2, 5));
+  });
+
   it('should invoke a function through local API', async () => {
     const response = await elio.invokePipeline('my_test_function', { name: 'test' });
     expect(response).to.eql({

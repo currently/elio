@@ -3,6 +3,7 @@ const { runInNewContext } = vm;
 const EventEmitter = require('events').EventEmitter;
 const Services = require('./services');
 const LifeCycle = require('./LifeCycle');
+const MapList = require('./structures/MapList');
 
 const WatchdogManager = require('./WatchdogManager');
 
@@ -18,7 +19,7 @@ class Elio extends EventEmitter {
     this._hasBeenReadyBefore = false;
     this._internalSourceRegistry = new Map();
     this._internalRoutingMap = new Map();
-    this._pipelines = new Map();
+    this._pipelines = new MapList();
     this._watchdog = new WatchdogManager(maxNodes || 5, ttl || 300000, this._lifecycle);
     if (config.modulePath) this._watchdog.setModulePath(config.modulePath);
     this._watchdog.once('ready', () => this._completeCriteria('nodesReady'));
@@ -70,7 +71,7 @@ class Elio extends EventEmitter {
     await this._lifecycle.trigger('onCreatePipeline', name, pipeline);
 
     /** @todo: Add validation */
-    this._pipelines.set(name, pipeline);
+    this._pipelines.push(name, pipeline);
   }
 
   async invokePipeline(name, context) {
@@ -79,7 +80,7 @@ class Elio extends EventEmitter {
     if (!this._pipelines.has(name)) throw new Error("Pipeline was not found");
 
     /** @todo: Map for A/B testing */
-    const pipeline = this._pipelines.get(name).slice(0); // Clone pipeline array
+    const pipeline = this._pipelines.top(name).slice(0); // Clone pipeline array
     const { length } = pipeline;
     let data = context;
 
@@ -93,7 +94,13 @@ class Elio extends EventEmitter {
   async readPipeline(name) {
     await this._lifecycle.trigger('onReadPipeline', name, this._pipelines.has(name));
 
-    return this._pipelines.get(name);
+    return this._pipelines.top(name);
+  }
+
+  async rollbackPipeline(name) {
+    await this._lifecycle.trigger('onRollbackPipeline', name, this._pipelines.top(name));
+
+    return this._pipelines.pop(name);
   }
 
   async removePipeline(name) {
