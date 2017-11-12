@@ -18,6 +18,7 @@ class Elio extends EventEmitter {
     this._hasBeenReadyBefore = false;
     this._internalSourceRegistry = new Map();
     this._internalRoutingMap = new Map();
+    this._pipelines = new Map();
     this._watchdog = new WatchdogManager(maxNodes || 5, ttl || 300000, this._lifecycle);
     if (config.modulePath) this._watchdog.setModulePath(config.modulePath);
     this._watchdog.once('ready', () => this._completeCriteria('nodesReady'));
@@ -65,33 +66,39 @@ class Elio extends EventEmitter {
     });
   }
 
-  async invokeRoute(route, context) {
-    await this._lifecycle.trigger('onInvokeRoute', route, context);
+  async createPipeline(name, pipeline) {
+    await this._lifecycle.trigger('onCreatePipeline', name, pipeline);
 
-    return this.invoke(this._internalRoutingMap.get(route), context);
+    /** @todo: Add validation */
+    this._pipelines.set(name, pipeline);
   }
 
-  async assignRoute(route, digest) {
-    this._internalRoutingMap.set(route, digest);
-    await this._lifecycle.trigger('onAssignRoute', digest);
+  async invokePipeline(name, context) {
+    await this._lifecycle.trigger('onInvokePipeline', name, context, this._pipelines.has(name));
+
+    if (!this._pipelines.has(name)) throw new Error("Pipeline was not found");
+
+    /** @todo: Map for A/B testing */
+    const pipeline = this._pipelines.get(name).slice(0); // Clone pipeline array
+    const { length } = pipeline;
+    let data = context;
+
+    for (let i = 0; i < length; i++) {
+      data = await this.invoke(pipeline[i], data);
+    }
+
+    return data;
   }
 
-  async removeRoute(route) {
-    this._internalRoutingMap.delete(route);
-    await this._lifecycle.trigger('onRemoveRoute', digest);
+  async readPipeline(name) {
+    await this._lifecycle.trigger('onReadPipeline', name, this._pipelines.has(name));
+
+    return this._pipelines.get(name);
   }
 
-  getRoute(route) {
-    return this._internalRoutingMap.get(route);
-  }
-
-  listRoutes() {
-    return Array.from(this._internalRoutingMap).map((a) => {
-      return {
-        route: a[0],
-        digest: a[1]
-      }
-    });
+  async removePipeline(name) {
+    await this._lifecycle.trigger('onRemovePipeline', name);
+    this._pipelines.delete(name);
   }
 
   async deploy(identity, source, signature, dependencies) {

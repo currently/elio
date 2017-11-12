@@ -89,25 +89,32 @@ describe('Elio Routing Test Suite', function () {
   });
 
   it('should create a route for the function', async () => {
-    await elio.assignRoute('my_test_function', f1_digest);
-    expect(elio.getRoute('my_test_function')).to.equal(f1_digest);
-    expect(elio.listRoutes()).to.have.deep.members([{
-      route: 'my_test_function',
-      digest: f1_digest
-    }]);
+    await elio.createPipeline('my_test_function', [f1_digest]);
+    expect(await elio.readPipeline('my_test_function')).to.eql([f1_digest]);
+  });
+
+  it('should pipeline functions', async () => {
+    const s1 = `
+      module.exports = async ({ value }) => ({ value: value * 2 });
+    `;
+    const digest = await elio.deploy('test', s1, signSource(s1));
+    await elio.createPipeline('multiply', [digest, digest, digest]);
+    
+    const response = await elio.invokePipeline('multiply', { value: 2 });
+    expect(response.value).to.be.equal(Math.pow(2, 4));
   });
 
   it('should invoke a function through local API', async () => {
-    const response = await elio.invokeRoute('my_test_function', { name: 'test' });
+    const response = await elio.invokePipeline('my_test_function', { name: 'test' });
     expect(response).to.eql({
       result: 'test'
     });
   });
 
   it('should swap a route', async () => {
-    await elio.assignRoute('my_test_function', f2_digest);
+    await elio.createPipeline('my_test_function', [f2_digest]);
 
-    const response = await elio.invokeRoute('my_test_function', { name: 'test' });
+    const response = await elio.invokePipeline('my_test_function', { name: 'test' });
     expect(response).to.eql({
       result: 'test',
       type: 's2'
