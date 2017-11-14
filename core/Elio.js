@@ -79,8 +79,25 @@ class Elio extends EventEmitter {
 
     if (!this._pipelines.has(name)) throw new Error("Pipeline was not found");
 
-    /** @todo: Map for A/B testing */
-    const pipeline = this._pipelines.top(name).slice(0); // Clone pipeline array
+    // Traffic ramp-up, A/B and sampling support
+    const pipeline = this._pipelines.top(name).map((step) => {
+      if (typeof step === 'string') return step;
+      if (!step || !step.type) return null;
+
+      switch(step.type) {
+        // Inspired by https://stackoverflow.com/questions/8435183/generate-a-weighted-random-number
+        case 'SPLIT':
+          let sum = 0;
+          const random = Math.random();
+          
+          for (const digest in step.spec) {
+            sum += spec[digest];
+            if (random <= sum) return digest;
+          }
+        break;
+      }
+    }).filter((v) => !!v);
+    
     const { length } = pipeline;
     let data = context;
 
