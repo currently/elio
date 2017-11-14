@@ -42,6 +42,7 @@ const GET_JSON_FROM_RESPONSE = (response, callback) => {
 };
 
 describe('Elio Routing Test Suite', function () {
+  this.timeout(5000);
   const port = 8091;
   let elio, f1_digest, f2_digest;
   const signSource = (source) => {
@@ -120,6 +121,55 @@ describe('Elio Routing Test Suite', function () {
     
     const response = await elio.invokePipeline('multiply', { value: 4 });
     expect(response.value).to.be.equal(Math.pow(2, 5));
+  });
+
+  it('should support sampling in pipelines', async () => {
+    const s1 = `module.exports = async ({ value }) => ({ value: value * 2 });`;
+    const s2 = `module.exports = async ({ value }) => ({ value: value * 3 });`;
+    const timesTwo = await elio.deploy('test', s1, signSource(s1));
+    const timesThree = await elio.deploy('test', s2, signSource(s2));
+    await elio.createPipeline('multiply', [{
+      type: "SPLIT",
+      spec: {
+        [timesTwo]: 0.3,
+        [timesThree]: 0.7
+      }
+    }]);
+
+    // Run in parallel
+    let runList = [];
+    let runs = {
+      [timesTwo]: 0,
+      [timesThree]: 0,
+      total: 0,
+      expected: 500
+    };
+
+    for (let i = 0; i < runs.expected; i++) {
+      runList.push(new Promise(async (resolve, reject) => {
+        try {
+          const { value: response } = await elio.invokePipeline('multiply', { value: 2 });
+          runs.total++;
+          if (response === 6) {
+            runs[timesThree]++;
+          } else if (response === 4) {
+            runs[timesTwo]++;
+          } else {
+            throw new Error(`Bad response ${response}`);
+          }
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      }));
+    }
+
+    await Promise.all(runList);
+
+    expect(runs.total).to.be.equal(runs.expected);
+    expect(runs[timesTwo] + runs[timesThree]).to.be.equal(runs.expected);
+    expect(runs[timesTwo]/runs.expected).to.be.closeTo(0.3, 0.07);   
+    expect(runs[timesThree]/runs.expected).to.be.closeTo(0.7, 0.07);    
   });
 
   it('should invoke a function through local API', async () => {

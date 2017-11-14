@@ -91,7 +91,7 @@ class Elio extends EventEmitter {
           const random = Math.random();
           
           for (const digest in step.spec) {
-            sum += spec[digest];
+            sum += step.spec[digest];
             if (random <= sum) return digest;
           }
         break;
