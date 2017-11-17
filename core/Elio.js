@@ -143,6 +143,12 @@ class Elio extends EventEmitter {
     this.emit('undeploy', digest);
   }
 
+  async hasDeployment(digest) {
+    await this._lifecycle.trigger('onHasDeployment', digest);
+
+    return this.listDeployments().indexOf(digest) !== -1;
+  }
+
   listDeployments() {
     return Array.from(this._watchdog.getAllocations());
   }
