@@ -17,8 +17,6 @@ class Elio extends EventEmitter {
       nodesReady: false
     };
     this._hasBeenReadyBefore = false;
-    this._internalSourceRegistry = new Map();
-    this._internalRoutingMap = new Map();
     this._pipelines = new MapList();
     this._watchdog = new WatchdogManager(maxNodes || 5, ttl || 300000, this._lifecycle);
     if (config.modulePath) this._watchdog.setModulePath(config.modulePath);
@@ -115,9 +113,13 @@ class Elio extends EventEmitter {
   }
 
   async rollbackPipeline(name) {
-    await this._lifecycle.trigger('onRollbackPipeline', name, this._pipelines.top(name));
+    const consensus = await this._lifecycle.trigger('onRollbackPipeline', name, this._pipelines.top(name));
+    const shouldRollback = (!consensus)?true:consensus.reduce((a, b) => (a === true || b === true), false);
 
-    return this._pipelines.pop(name);
+    /* Services return true to indicate rollback was done by the service
+       at which point the pipeline is removed from the local implementation
+       and left to the service to reload it */
+    return (shouldRollback)?this._pipelines.pop(name):this.removePipeline(name);
   }
 
   async removePipeline(name) {
