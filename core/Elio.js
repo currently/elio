@@ -51,8 +51,9 @@ class Elio extends EventEmitter {
     }
   }
 
-  async invoke(digest, context) {
+  async invoke(digest, _context) {
     let allocated = this._watchdog.hasAllocation(digest);
+    const context = ((typeof _context === 'string') || (typeof _context === 'function') || (Array.isArray(_context)))?{ value: _context }:_context;
     if (this._watchdog.hasCachedAllocation(digest)) {
       allocated = await this._watchdog.allocateFromCache(digest);
     }
