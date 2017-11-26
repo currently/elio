@@ -1,7 +1,7 @@
 const Elio = require('../core/Elio');
 const request = require('request');
 const crypto = require('crypto');
-const { Signature, Package } = Elio.services;
+const { Signature, Package, InMemoryPipelines } = Elio.services;
 
 const privateKey =
   `-----BEGIN RSA PRIVATE KEY-----
@@ -55,6 +55,7 @@ describe('Elio Integration Test Suite', function () {
       ttl: 30000
     });
 
+    elio.use(new InMemoryPipelines());
     elio.use(new Signature([["test", Buffer.from(publicKey)]]));
 
     elio.on('ready', done);

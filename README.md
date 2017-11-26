@@ -8,11 +8,15 @@ Elio was built from ground up to rely on short-running processes called *Nodes* 
 ```javascript
 const Elio = require('elio');
 const crypto = require('crypto');
+const { InMemoryPipelines } = Elio.services;
 
 const elio = new Elio({
   maxNodes: 3, // Total number of concurrent workers (should be higher than core count for redundancy)
   ttl: 30000 // Maximum execution time for functions
 });
+
+// In Memory Storage
+elio.use(new InMemoryPipelines());
 
 const source = `
   module.exports = async (context) => ({

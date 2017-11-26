@@ -19,13 +19,16 @@ class LifeCycle {
   async trigger(hook, ...args) {
     const hooks = this.hooks.get(hook) || [];
     const hookSize = hooks.length;
+    let results = [];
 
     // Add instance to args
     args.push(this.instance);
 
     for (let i = 0; i < hookSize; i++) {
-      await hooks[i][hook](...args);
+      results.push(await hooks[i][hook](...args));
     }
+
+    return results;
   }
 }
 
